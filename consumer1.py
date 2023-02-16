@@ -1,8 +1,7 @@
 """
     This program listens for work messages contiously. 
-    Start multiple versions to add more workers.  
-    Author: Denise Case
-    Date: January 15, 2023
+    This is the first consumer for the data. 
+    queue name is Channel1. This covers smoker temps. 
 """
 
 import pika
@@ -10,21 +9,20 @@ import sys
 import time
 
 # define a callback function to be called when a message is received
-def callback(ch, method, properties, body):
+def smoker_callback(ch, body):
     """ Define behavior on getting a message."""
     # decode the binary message body to a string
     print(f" [x] Received {body.decode()}")
-    # simulate work by sleeping for the number of dots in the message
-    time.sleep(body.count(b"."))
+    # simulate work by sleeping for 30 seconds
+    time.sleep(30)
     # when done with task, tell the user
     print(" [x] Done.")
-    # acknowledge the message was received and processed 
-    # (now it can be deleted from the queue)
-    ch.basic_ack(delivery_tag=method.delivery_tag)
+    # Set to false so the message can be read first.
+    ch.basic_ack(False)
 
 
 # define a main function to run the program
-def main(hn: str = "localhost", qn: str = "task_queue"):
+def main(hn: str = "localhost", qn: str = "Channel1"):
     """ Continuously listen for task messages on a named queue."""
 
     # when a statement can go wrong, use a try-except block
@@ -65,7 +63,7 @@ def main(hn: str = "localhost", qn: str = "task_queue"):
         # configure the channel to listen on a specific queue,  
         # use the callback function named callback,
         # and do not auto-acknowledge the message (let the callback handle it)
-        channel.basic_consume( queue=qn, on_message_callback=callback)
+        channel.basic_consume( queue=qn, on_message_callback=smoker_callback)
 
         # print a message to the console for the user
         print(" [*] Ready for work. To exit press CTRL+C")
@@ -94,4 +92,4 @@ def main(hn: str = "localhost", qn: str = "task_queue"):
 # If this is the program being run, then execute the code below
 if __name__ == "__main__":
     # call the main function with the information needed
-    main("localhost", "task_queue2")
+    main("localhost", "Channel1")
