@@ -95,4 +95,4 @@ def main(host: str, queue_name: str, message: str):
 # If this is the program being run, then execute the code below
 if __name__ == "__main__":
     # call the main function with the information needed
-    main(host= "localhost", queue_name=smoker_callback,message= str)
+    main(host= str, queue_name= str,message= str)
