@@ -19,23 +19,25 @@ def foodA_callback(ch, body):
     print(" [x] Done.")
     # set to false so that the message doesn't get deleted.
     ch.basic_ack(False)
+    # print confirmation 
+    print("receiving message...")
 
 
 # define a main function to run the program
-def main(hn: str = "localhost", qn: str = "Channel2"):
+def main(host: str, queue_name: str, message: str):
     """ Continuously listen for task messages on a named queue."""
 
     # when a statement can go wrong, use a try-except block
     try:
         # try this code, if it works, keep going
         # create a blocking connection to the RabbitMQ server
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=hn))
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host))
 
     # except, if there's an error, do this
     except Exception as e:
         print()
         print("ERROR: connection to RabbitMQ server failed.")
-        print(f"Verify the server is running on host={hn}.")
+        print(f"Verify the server is running on host={host}.")
         print(f"The error says: {e}")
         print()
         sys.exit(1)
@@ -48,7 +50,7 @@ def main(hn: str = "localhost", qn: str = "Channel2"):
         # a durable queue will survive a RabbitMQ server restart
         # and help ensure messages are processed in order
         # messages will not be deleted until the consumer acknowledges
-        channel.queue_declare(queue=qn, durable=True)
+        channel.queue_declare(queue=queue_name, durable=True)
 
         # The QoS level controls the # of messages
         # that can be in-flight (unacknowledged by the consumer)
@@ -63,7 +65,7 @@ def main(hn: str = "localhost", qn: str = "Channel2"):
         # configure the channel to listen on a specific queue,  
         # use the callback function named callback,
         # and do not auto-acknowledge the message (let the callback handle it)
-        channel.basic_consume( queue=qn, on_message_callback=foodA_callback)
+        channel.basic_consume( queue=queue_name, on_message_callback=foodA_callback)
 
         # print a message to the console for the user
         print(" [*] Ready for work. To exit press CTRL+C")
@@ -92,4 +94,4 @@ def main(hn: str = "localhost", qn: str = "Channel2"):
 # If this is the program being run, then execute the code below
 if __name__ == "__main__":
     # call the main function with the information needed
-    main("localhost", "Channel2")
+    main(host="localhost",queue_name=foodA_callback,message= str)
