@@ -7,35 +7,47 @@
 import pika
 import sys
 import time
+from collections import deque
 
+foodB_deque = deque(maxlen=20) #limited to 20 most recent readings
 # define a callback function to be called when a message is received
-def foodB_callback(ch, body):
+def callback(ch, method, properties, body):
     """ Define behavior on getting a message."""
     # decode the binary message body to a string
     print(f" [x] Received {body.decode()}")
-    # simulate work by sleeping for the number of dots in the message
-    time.sleep(30)
-    # when done with task, tell the user
-    print(" [x] Done.")
-    # Set to False to the message doesn't delete.
-    ch.basic_ack(False)
+    #create function to alert if food is stalling
+    reading_stringfood=body.decode()
+    #split tempt from string
+    try:
+        tempB=reading_stringfood.split(",")
+        if tempB[-1]!="":
+            #add to deque only the 3rd temp reading
+            foodB_deque.append(float(tempB[-1]))
+        #check to see if deque is not empty and if temp has increased
+        if len(foodB_deque)==20 and max(foodB_deque)-min(foodB_deque)<1 :
+            print("foodB is stalling")
+    except ValueError:
+        pass
+    #acknowledge the message was received and processed
+    #then it can be deleted from the queue
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
 # define a main function to run the program
-def main(host: str, queue_name: str, message: str):
+def main(hn: str = "localhost", qn: str = "task_queue"):
     """ Continuously listen for task messages on a named queue."""
 
     # when a statement can go wrong, use a try-except block
     try:
         # try this code, if it works, keep going
         # create a blocking connection to the RabbitMQ server
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host))
+        connection = pika.BlockingConnection(pika.ConnectionParameters(hn))
 
     # except, if there's an error, do this
     except Exception as e:
         print()
         print("ERROR: connection to RabbitMQ server failed.")
-        print(f"Verify the server is running on host={host}.")
+        print(f"Verify the server is running on host={hn}.")
         print(f"The error says: {e}")
         print()
         sys.exit(1)
@@ -48,7 +60,7 @@ def main(host: str, queue_name: str, message: str):
         # a durable queue will survive a RabbitMQ server restart
         # and help ensure messages are processed in order
         # messages will not be deleted until the consumer acknowledges
-        channel.queue_declare(queue=queue_name, durable=True)
+        channel.queue_declare(queue=qn, durable=True)
 
         # The QoS level controls the # of messages
         # that can be in-flight (unacknowledged by the consumer)
@@ -63,16 +75,13 @@ def main(host: str, queue_name: str, message: str):
         # configure the channel to listen on a specific queue,  
         # use the callback function named callback,
         # and do not auto-acknowledge the message (let the callback handle it)
-        channel.basic_consume( queue=queue_name, on_message_callback=foodB_callback)
+        channel.basic_consume( queue=qn, on_message_callback=callback)
 
         # print a message to the console for the user
         print(" [*] Ready for work. To exit press CTRL+C")
 
         # start consuming messages via the communication channel
         channel.start_consuming()
-
-        # receive message
-        print("receiving message...")
 
     # except, in the event of an error OR user stops the process, do this
     except Exception as e:
@@ -95,4 +104,4 @@ def main(host: str, queue_name: str, message: str):
 # If this is the program being run, then execute the code below
 if __name__ == "__main__":
     # call the main function with the information needed
-    main(host=str, queue_name=str, message= str)
+    main("localhost", "03-food-B")

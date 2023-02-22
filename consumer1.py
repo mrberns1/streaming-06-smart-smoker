@@ -1,41 +1,51 @@
 """
     This program listens for work messages contiously. 
     This is the first consumer for the data. 
-    queue name is Channel1. This covers smoker temps. 
+    queue name is foodA. 
 """
-
+#import modules needed
 import pika
 import sys
 import time
-
+from collections import deque
+foodA_deque = deque(maxlen=20) #limited to 20 items (most recent readings)
 # define a callback function to be called when a message is received
-def smoker_callback(ch, body):
+def callback(ch, method, properties, body):
     """ Define behavior on getting a message."""
     # decode the binary message body to a string
     print(f" [x] Received {body.decode()}")
-    # simulate work by sleeping for 30 seconds
-    time.sleep(30)
-    # when done with task, tell the user
-    print(" [x] Done.")
-    # Set to false so the message can be read first.
-    ch.basic_ack(False)
-
+    #create function to alert if food is stalling
+    reading_stringfood=body.decode()
+    # split the temp from string
+    try:
+        tempA=reading_stringfood.split(",")
+        if tempA[1][:-1]!="":
+            #add to deque only the second temp reading
+            foodA_deque.append(float(tempA[1][:-1]))
+        #check to see if deque is not empty and to see if the temp has increased
+        if len(foodA_deque)==20 and max(foodA_deque)-min(foodA_deque)<1 :
+            print("foodA is stalling")
+    except ValueError:
+        pass
+    #acknowledge that the message was received and processed
+    #then it can be deleted from the queue
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
 # define a main function to run the program
-def main(host: str, queue_name: str, message: str):
+def main(hn: str = "localhost", qn: str = "task_queue"):
     """ Continuously listen for task messages on a named queue."""
 
     # when a statement can go wrong, use a try-except block
     try:
         # try this code, if it works, keep going
         # create a blocking connection to the RabbitMQ server
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host))
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=hn))
 
     # except, if there's an error, do this
     except Exception as e:
         print()
         print("ERROR: connection to RabbitMQ server failed.")
-        print(f"Verify the server is running on host={host}.")
+        print(f"Verify the server is running on host={hn}.")
         print(f"The error says: {e}")
         print()
         sys.exit(1)
@@ -48,7 +58,7 @@ def main(host: str, queue_name: str, message: str):
         # a durable queue will survive a RabbitMQ server restart
         # and help ensure messages are processed in order
         # messages will not be deleted until the consumer acknowledges
-        channel.queue_declare(queue=queue_name, durable=True)
+        channel.queue_declare(queue=qn, durable=True)
 
         # The QoS level controls the # of messages
         # that can be in-flight (unacknowledged by the consumer)
@@ -63,16 +73,13 @@ def main(host: str, queue_name: str, message: str):
         # configure the channel to listen on a specific queue,  
         # use the callback function named callback,
         # and do not auto-acknowledge the message (let the callback handle it)
-        channel.basic_consume( queue=queue_name, on_message_callback=smoker_callback)
+        channel.basic_consume( queue=qn, on_message_callback=callback)
 
         # print a message to the console for the user
         print(" [*] Ready for work. To exit press CTRL+C")
 
         # start consuming messages via the communication channel
         channel.start_consuming()
-
-        # print messages as they come in
-        print("receving message...")
 
     # except, in the event of an error OR user stops the process, do this
     except Exception as e:
@@ -95,4 +102,4 @@ def main(host: str, queue_name: str, message: str):
 # If this is the program being run, then execute the code below
 if __name__ == "__main__":
     # call the main function with the information needed
-    main(host= str, queue_name= str,message= str)
+    main("localhost", "02-food-A")
